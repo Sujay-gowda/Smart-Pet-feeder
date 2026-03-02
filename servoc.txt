@@ -1,0 +1,24 @@
+#include <ESP32Servo.h>
+
+Servo myServo;
+
+void setup() {
+  myServo.attach(18); // Attach servo to GPIO pin 18
+  Serial.begin(115200);
+}
+
+void loop() {
+  // Move from 0 to 90 degrees
+  for(int i = 0; i <= 0; i++) {  // ✅ Corrected syntax
+    myServo.write(i);
+    Serial.println(i);
+    delay(10);
+  }
+
+  // Move from 90 back to 0 degrees
+  for(int i = 30; i >= 0; i--) {  // ✅ Corrected syntax
+    myServo.write(i);
+    Serial.println(i);
+    delay(10);
+  }
+}

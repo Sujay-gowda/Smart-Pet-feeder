@@ -1,0 +1,96 @@
+#define BLYNK_TEMPLATE_ID "TMPL3LSlTwcT5"
+#define BLYNK_TEMPLATE_NAME "Pet Feeder Module"
+#define BLYNK_AUTH_TOKEN "Ejw_Cf-2BgVrjePnUVkUUkJ5SPE_2wdT"
+
+// Wi-Fi Credentials
+char ssid[] = "AirfibreSujay";
+char pass[] = "Octane0027";
+
+// Debug Print
+#define BLYNK_PRINT Serial  
+
+// Libraries
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+#include <ESP32Servo.h>
+
+// Servo setup
+Servo myServo;
+const int servoPin = 18;
+const int OPEN_ANGLE = 90;
+const int CLOSE_ANGLE = 0;
+
+// Function for smooth servo movement
+void moveServo(int targetAngle) {
+    int currentAngle = myServo.read();
+    while (currentAngle != targetAngle) {
+        currentAngle += (targetAngle > currentAngle) ? 1 : -1;
+        myServo.write(currentAngle);
+        delay(15);
+    }
+}
+
+// Manual feed via Button widget (V0)
+BLYNK_WRITE(V0) {
+    int pinValue = param.asInt();
+    if (pinValue == 1) {
+        Serial.println("Manual feed: Opening feeder...");
+        moveServo(OPEN_ANGLE);
+    } else {
+        Serial.println("Manual feed: Closing feeder...");
+        moveServo(CLOSE_ANGLE);
+    }
+}
+
+// Scheduled auto feed via Automation (V1)
+BLYNK_WRITE(V1) {
+    int pinValue = param.asInt();
+    if (pinValue == 1) {
+        Serial.println("Auto feed triggered by automation.");
+        moveServo(OPEN_ANGLE);
+        delay(1000);  // Wait before closing
+        moveServo(CLOSE_ANGLE);
+    }
+}
+
+// Wi-Fi reconnect
+void reconnectWiFi() {
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("Wi-Fi disconnected. Reconnecting...");
+        WiFi.begin(ssid, pass);
+        int retries = 0;
+        while (WiFi.status() != WL_CONNECTED && retries < 20) {
+            delay(500);
+            Serial.print(".");
+            retries++;
+        }
+        Serial.println(WiFi.status() == WL_CONNECTED ? "\nWi-Fi reconnected!" : "\nWi-Fi reconnection failed.");
+    }
+}
+
+void setup() {
+    Serial.begin(115200);
+    delay(1000);
+
+    myServo.attach(servoPin);
+    myServo.write(CLOSE_ANGLE);
+
+    Serial.print("Connecting to Wi-Fi: ");
+    Serial.println(ssid);
+    WiFi.begin(ssid, pass);
+
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+
+    Serial.println("\nWi-Fi connected.");
+    Blynk.config(BLYNK_AUTH_TOKEN);
+    Blynk.connect();
+}
+
+void loop() {
+    Blynk.run();
+    reconnectWiFi();
+}

@@ -1,0 +1,120 @@
+notify feed
+#define BLYNK_TEMPLATE_ID "TMPL3LSlTwcT5"
+#define BLYNK_TEMPLATE_NAME "Pet Feeder Module"
+#define BLYNK_AUTH_TOKEN "Ejw_Cf-2BgVrjePnUVkUUkJ5SPE_2wdT"
+
+char ssid[] = "AirfibreSujay";
+char pass[] = "Octane0027";
+
+#define BLYNK_PRINT Serial
+
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+#include <ESP32Servo.h>
+#include <TimeLib.h>
+#include <WidgetRTC.h>
+
+Servo myServo;
+const int servoPin = 18;
+const int OPEN_ANGLE = 90;
+const int CLOSE_ANGLE = 0;
+
+BlynkTimer timer;
+WidgetRTC rtc;
+
+bool notifiedMorning = false;
+bool notifiedAfternoon = false;
+
+// Move servo smoothly
+void moveServo(int targetAngle) {
+    int currentAngle = myServo.read();
+    while (currentAngle != targetAngle) {
+        currentAngle += (targetAngle > currentAngle) ? 1 : -1;
+        myServo.write(currentAngle);
+        delay(15);
+    }
+}
+
+// Button V0: manual feeding
+BLYNK_WRITE(V0) {
+    int pinValue = param.asInt();
+    if (pinValue == 1) {
+        Serial.println("Manual feed: Opening feeder...");
+        moveServo(OPEN_ANGLE);
+        delay(1000);
+        moveServo(CLOSE_ANGLE);
+    }
+}
+
+// Optional V1: automation from Blynk cloud
+BLYNK_WRITE(V1) {
+    int pinValue = param.asInt();
+    if (pinValue == 1) {
+        Serial.println("Auto feed triggered by automation.");
+        moveServo(OPEN_ANGLE);
+        delay(1000);
+        moveServo(CLOSE_ANGLE);
+    }
+}
+
+// Daily notifications at 9:00 AM and 2:00 PM
+void checkSchedule() {
+    int hr = hour();
+    int min = minute();
+
+    if (hr == 9 && min == 0 && !notifiedMorning) {
+        Blynk.logEvent("feeding_reminder", "Good morning! Time to feed your pet 🐾");
+        notifiedMorning = true;
+    } else if (hr == 14 && min == 50 && !notifiedAfternoon) {
+        Blynk.logEvent("feeding_reminder", "Afternoon feeding time 🐶🍽️");
+        notifiedAfternoon = true;
+    }
+
+    // Reset flags at midnight
+    if (hr == 0 && min == 5) {
+        notifiedMorning = false;
+        notifiedAfternoon = false;
+    }
+}
+
+void reconnectWiFi() {
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("Wi-Fi disconnected. Reconnecting...");
+        WiFi.begin(ssid, pass);
+        int retries = 0;
+        while (WiFi.status() != WL_CONNECTED && retries < 20) {
+            delay(500);
+            Serial.print(".");
+            retries++;
+        }
+        Serial.println(WiFi.status() == WL_CONNECTED ? "\nWi-Fi reconnected!" : "\nWi-Fi reconnection failed.");
+    }
+}
+
+void setup() {
+    Serial.begin(115200);
+    delay(1000);
+
+    myServo.attach(servoPin);
+    myServo.write(CLOSE_ANGLE);
+
+    WiFi.begin(ssid, pass);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("\nWi-Fi connected.");
+
+    Blynk.config(BLYNK_AUTH_TOKEN);
+    Blynk.connect();
+
+    rtc.begin();
+    timer.setInterval(60000L, checkSchedule);  // check every 1 minute
+}
+
+void loop() {
+    Blynk.run();
+    timer.run();
+    reconnectWiFi();
+}
